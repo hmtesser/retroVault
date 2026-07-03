@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
-import HomeMenu from "./HomeMenu";
-import ExitDialog from "./ExitDialog";
 
-import Library from "../Library/Library";
-import Settings from "../Settings/Settings";
+import HomeMenu from "../../components/HomeMenu/HomeMenu";
+import ConsoleSidebar from "../../components/ConsoleSidebar/ConsoleSidebar";
+import GameGrid from "../../components/GameGrid/GameGrid";
+import GamePreview from "../../components/GamePreview/GamePreview";
 
 import { GameService } from "../../services/GameService";
-
-const service = new GameService();
 
 export type Screen =
   | "home"
@@ -16,15 +14,29 @@ export type Screen =
   | "settings"
   | "exit";
 
+export interface Game {
+  name: string;
+  path: string;
+  [key: string]: any;
+}
+
+export interface LibraryMap {
+  [consoleName: string]: Game[];
+}
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("home");
 
-  const [library, setLibrary] = useState<any>({});
-  const [selectedConsole, setSelectedConsole] = useState("");
-  const [selectedGame, setSelectedGame] = useState(0);
+  const [library, setLibrary] = useState<LibraryMap>({});
+
+  const [consoleIndex, setConsoleIndex] = useState(0);
+  const [gameIndex, setGameIndex] = useState(0);
 
   const service = new GameService();
+
+  const consoles = Object.keys(library);
+  const currentConsole = consoles[consoleIndex];
+  const games = currentConsole ? library[currentConsole] ?? [] : [];
 
   async function handleScan() {
     const path =
@@ -33,81 +45,99 @@ export default function Home() {
     const result = await service.loadLibrary(path);
 
     setLibrary(result);
+    setConsoleIndex(0);
+    setGameIndex(0);
 
-    const firstConsole = Object.keys(result)[0];
-    setSelectedConsole(firstConsole);
+    setScreen("library");
   }
 
   useEffect(() => {
+    if (screen !== "library") return;
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && screen !== "home") {
-        setScreen("home");
+      switch (e.key) {
+        case "ArrowUp":
+          setConsoleIndex((p) => Math.max(p - 1, 0));
+          setGameIndex(0);
+          break;
+
+        case "ArrowDown":
+          setConsoleIndex((p) =>
+            Math.min(p + 1, consoles.length - 1)
+          );
+          setGameIndex(0);
+          break;
+
+        case "ArrowLeft":
+          setGameIndex((p) => Math.max(p - 1, 0));
+          break;
+
+        case "ArrowRight":
+          setGameIndex((p) =>
+            Math.min(p + 1, games.length - 1)
+          );
+          break;
+
+        case "Enter":
+          if (games[gameIndex]) {
+            console.log(games[gameIndex]);
+          }
+          break;
+
+        case "Escape":
+          setScreen("home");
+          break;
       }
     };
 
     window.addEventListener("keydown", onKey);
+
     return () => window.removeEventListener("keydown", onKey);
-  }, [screen]);
+  }, [screen, consoles.length, games.length, gameIndex]);
 
   return (
     <div className="flex h-screen bg-[#05070b] text-white">
 
-      {/* MENU HOME */}
       {screen === "home" && (
         <div className="m-auto text-center">
+
           <HomeMenu onNavigate={setScreen} />
 
           <button
             onClick={handleScan}
-            className="mt-6 px-6 py-3 bg-blue-600 rounded"
+            className="mt-8 rounded-lg bg-blue-600 px-6 py-3 hover:bg-blue-500 transition"
           >
             Scan ROMs
           </button>
+
         </div>
       )}
 
-      {/* EMUELEC MODE */}
-      {screen !== "home" && (
+      {screen === "library" && (
         <>
-          {/* LEFT CONSOLES */}
-          <div className="w-48 bg-[#0b0f17] border-r border-gray-800 p-4">
-            {Object.keys(library).map((console) => (
-              <div
-                key={console}
-                onClick={() => {
-                  setSelectedConsole(console);
-                  setSelectedGame(0);
-                }}
-                className={`p-2 cursor-pointer rounded mb-2 ${
-                  selectedConsole === console
-                    ? "bg-blue-600"
-                    : "text-gray-400"
-                }`}
-              >
-                {console}
-              </div>
-            ))}
-          </div>
+          <ConsoleSidebar
+            consoles={consoles}
+            selected={consoleIndex}
+            onSelect={(index) => {
+              setConsoleIndex(index);
+              setGameIndex(0);
+            }}
+          />
 
-          {/* RIGHT GAMES */}
-          <div className="flex-1 p-6 grid grid-cols-4 gap-4 overflow-auto">
-            {(library[selectedConsole] || []).map((game: any, index: number) => (
-              <div
-                key={game.path}
-                onClick={() => setSelectedGame(index)}
-                className={`bg-[#111827] p-3 rounded cursor-pointer transition ${
-                  selectedGame === index
-                    ? "border border-blue-500 scale-105"
-                    : "border border-transparent"
-                }`}
-              >
-                <div className="h-32 bg-gray-800 rounded mb-2" />
-                <p className="text-sm">{game.name}</p>
-              </div>
-            ))}
-          </div>
+          <GameGrid
+            games={games}
+            consoleName={currentConsole ?? ""}
+            selected={gameIndex}
+            onSelect={setGameIndex}
+          />
+
+          <GamePreview
+            game={games[gameIndex]}
+            consoleName={currentConsole ?? ""}
+          />
         </>
       )}
+
     </div>
   );
 }
