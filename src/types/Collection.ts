@@ -1,4 +1,4 @@
-import type { Games } from "./Games";
+import type { Game } from "./Game";
 
 export interface Collection {
     id: string;
@@ -9,7 +9,7 @@ export interface Collection {
     
     icon?: string;
 
-    games: Games[];
+    games: Game[];
 
     readonly?: boolean;
 
